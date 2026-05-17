@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VulnHunter · AI 漏洞挖掘控制台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">▲</div>
+      <div class="brand-text">
+        <div class="brand-name">VULN<span>HUNTER</span></div>
+        <div class="brand-sub">ai-assisted code audit</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item active" data-view="dashboard">
+        <span class="dot"></span> 仪表盘
+      </a>
+      <a class="nav-item" data-view="queue">
+        <span class="dot"></span> 项目队列
+      </a>
+      <a class="nav-item" data-view="configs">
+        <span class="dot"></span> 模型配置
+      </a>
+      <a class="nav-item" data-view="usage">
+        <span class="dot"></span> API 用量
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="status-line">
+        <span class="live-dot"></span>
+        <span id="worker-status">worker · idle</span>
+      </div>
+      <div class="version">v0.1 · local</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ===== Dashboard ===== -->
+    <section class="view view-dashboard active">
+      <header class="view-head">
+        <div>
+          <h1 class="display">漏洞 <em>挖掘</em> 控制台</h1>
+          <p class="lede">多阶段链式验证 · 自审 · 交叉复核 · 防幻觉</p>
+        </div>
+        <button class="btn-primary" id="quick-add-btn">＋ 新建分析任务</button>
+      </header>
+
+      <div class="kpi-grid" id="kpi-grid">
+        <!-- KPI tiles 动态渲染 -->
+      </div>
+
+      <div class="panel-row">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>正在进行</h2>
+            <span class="panel-sub" id="active-count">0 个</span>
+          </div>
+          <div class="active-list" id="active-list">
+            <div class="empty">空闲。提交一个 GitHub 项目开始分析。</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>近期完成</h2>
+          </div>
+          <div class="recent-list" id="recent-list"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>API 调用速率 <span class="panel-sub">/ 最近 24h</span></h2>
+        </div>
+        <div class="chart" id="usage-chart"></div>
+      </div>
+    </section>
+
+    <!-- ===== Queue ===== -->
+    <section class="view view-queue">
+      <header class="view-head">
+        <div>
+          <h1 class="display">项目 <em>队列</em></h1>
+          <p class="lede">每个项目走完完整流水线后自动进入下一个</p>
+        </div>
+        <button class="btn-primary" id="add-btn">＋ 添加</button>
+      </header>
+
+      <div class="panel">
+        <table class="data-table" id="projects-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>仓库</th>
+              <th>状态</th>
+              <th>阶段</th>
+              <th>进度</th>
+              <th>原始/确认/淘汰</th>
+              <th>耗时</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== LLM Configs ===== -->
+    <section class="view view-configs">
+      <header class="view-head">
+        <div>
+          <h1 class="display">模型 <em>配置</em></h1>
+          <p class="lede">Ollama / Gemini / OpenAI 兼容（硅基流动、自建等）</p>
+        </div>
+        <button class="btn-primary" id="add-config-btn">＋ 新增模型</button>
+      </header>
+
+      <div class="panel">
+        <table class="data-table" id="configs-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>名称</th>
+              <th>类型</th>
+              <th>端点</th>
+              <th>模型</th>
+              <th>API key</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel hint-panel">
+        <h3>典型端点</h3>
+        <table class="hint-table">
+          <tr><td>Ollama 本地</td><td><code>http://localhost:11434</code></td><td>无需 api key</td></tr>
+          <tr><td>Gemini</td><td><code>https://generativelanguage.googleapis.com</code></td><td>需 Google AI Studio key</td></tr>
+          <tr><td>硅基流动</td><td><code>https://api.siliconflow.cn</code></td><td>Bearer token</td></tr>
+          <tr><td>DeepSeek</td><td><code>https://api.deepseek.com</code></td><td>Bearer token</td></tr>
+          <tr><td>你自己的服务</td><td><code>http://your.host:port</code></td><td>OpenAI 兼容协议</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Usage ===== -->
+    <section class="view view-usage">
+      <header class="view-head">
+        <div>
+          <h1 class="display">API <em>用量</em></h1>
+          <p class="lede">按模型分组的调用次数、token 消耗与延迟</p>
+        </div>
+      </header>
+      <div class="panel">
+        <table class="data-table" id="usage-table">
+          <thead>
+            <tr>
+              <th>模型配置</th>
+              <th>Provider</th>
+              <th>调用</th>
+              <th>Prompt tokens</th>
+              <th>Completion tokens</th>
+              <th>平均延迟</th>
+              <th>错误</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Modals ===== -->
+
+  <!-- New project modal -->
+  <div class="modal" id="project-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>新建分析任务</h2>
+        <button class="close-btn" data-close="project-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <label>GitHub 仓库 URL</label>
+        <input type="text" id="repo-url" placeholder="https://github.com/owner/repo">
+
+        <label>主分析模型（扫描 + 自审）</label>
+        <select id="primary-config"></select>
+
+        <label>交叉验证模型（可与主一致；不一致更能防幻觉）</label>
+        <select id="review-config"></select>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" data-close="project-modal">取消</button>
+          <button class="btn-primary" id="submit-project">加入队列</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LLM config modal -->
+  <div class="modal" id="config-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>新增模型配置</h2>
+        <button class="close-btn" data-close="config-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <label>配置名称（自取）</label>
+        <input type="text" id="cfg-name" placeholder="例如：本地-llama3 或 gemini-2.5-pro">
+
+        <label>类型</label>
+        <select id="cfg-provider">
+          <option value="ollama">Ollama（本地）</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="openai_compatible">OpenAI 兼容（硅基流动 / 自建 / DeepSeek …）</option>
+        </select>
+
+        <div id="provider-fields">
+          <!-- 根据 provider 动态变 -->
+        </div>
+
+        <label>模型名</label>
+        <div class="inline-row">
+          <select id="cfg-model-select" class="grow"><option value="">—— 先点上方"列模型"或手填 ——</option></select>
+        </div>
+        <input type="text" id="cfg-model-manual" placeholder="或手动输入模型名">
+
+        <div class="inline-row">
+          <div class="grow">
+            <label>Temperature</label>
+            <input type="number" id="cfg-temp" value="0.2" step="0.05" min="0" max="2">
+          </div>
+          <div class="grow">
+            <label>Max tokens</label>
+            <input type="number" id="cfg-max" value="4096" step="256">
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" id="cfg-test">测试连接</button>
+          <span class="spacer"></span>
+          <button class="btn-ghost" data-close="config-modal">取消</button>
+          <button class="btn-primary" id="cfg-save">保存</button>
+        </div>
+        <div id="cfg-test-result" class="test-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project detail modal -->
+  <div class="modal modal-wide" id="detail-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="detail-title">项目详情</h2>
+          <div class="detail-sub" id="detail-sub"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn-ghost" id="detail-rerun-btn" style="display:none;">重新分析</button>
+          <button class="close-btn" data-close="detail-modal">×</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="pipeline-progress" id="pipeline-progress">
+          <!-- 7 个阶段的圆点 -->
+        </div>
+
+        <div class="detail-tabs">
+          <button class="tab active" data-tab="findings">确认漏洞 <span id="cnt-findings">0</span></button>
+          <button class="tab" data-tab="rejected">已淘汰 <span id="cnt-rejected">0</span></button>
+          <button class="tab" data-tab="logs">实时日志</button>
+        </div>
+
+        <div class="detail-pane pane-findings active" id="pane-findings"></div>
+        <div class="detail-pane pane-rejected" id="pane-rejected"></div>
+        <div class="detail-pane pane-logs" id="pane-logs">
+          <pre class="log-pane" id="log-pane"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finding detail modal -->
+  <div class="modal modal-wide" id="finding-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="finding-title">漏洞详情</h2>
+          <div class="detail-sub" id="finding-sub"></div>
+        </div>
+        <div class="finding-actions">
+          <button class="btn-ghost" id="copy-report">复制报告</button>
+          <button class="btn-ghost" id="download-report">下载 .md</button>
+          <button class="close-btn" data-close="finding-modal">×</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="finding-report" class="finding-report"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toast-wrap"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
